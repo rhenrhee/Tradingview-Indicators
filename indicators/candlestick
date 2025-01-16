@@ -1,0 +1,795 @@
+//@version=4
+study("Имэй Рэн | Анализ паттернов японских свечей", shorttitle = "Все паттерны", overlay=true)
+
+C_DownTrend = true
+C_UpTrend = true
+var trendRule1 = "SMA50"
+var trendRule2 = "SMA50, SMA200"
+var trendRule = input(trendRule1, "Метод поиска тренда", options=[trendRule1, trendRule2, "не выбрано"])
+
+if trendRule == trendRule1
+	priceAvg = sma(close, 50)
+	C_DownTrend := close < priceAvg
+	C_UpTrend := close > priceAvg
+
+if trendRule == trendRule2
+	sma200 = sma(close, 200)
+	sma50 = sma(close, 50)
+	C_DownTrend := close < sma50 and sma50 < sma200
+	C_UpTrend := close > sma50 and sma50 > sma200
+
+C_Len = 14                      // ema depth for bodyAvg
+C_ShadowPercent = 5.0           // size of shadows
+C_ShadowEqualsPercent = 100.0
+C_DojiBodyPercent = 5.0
+C_Factor = 2.0                  // shows the number of times the shadow dominates the candlestick body
+
+// length and height
+C_BodyHi = max(close, open)             // Открытие свечи
+C_BodyLo = min(close, open)             // Закрытие свечи
+C_Body = C_BodyHi - C_BodyLo            // Тело свечи
+C_BodyMiddle = C_Body / 2 + C_BodyLo    // Центр свечи
+C_BodyAvg = ema(C_Body, C_Len)          // Средняя
+C_UpShadow = high - C_BodyHi            // Верхняя тень
+C_DnShadow = C_BodyLo - low             // Нижняя тень
+C_Range = high-low                      // Размерность
+
+// bool
+C_SmallBody = C_Body < C_BodyAvg        // Малая свеча    
+C_LongBody = C_Body > C_BodyAvg         // Большая свеча
+C_HasUpShadow = C_UpShadow > C_ShadowPercent / 100 * C_Body     // Верхняя тень
+C_HasDnShadow = C_DnShadow > C_ShadowPercent / 100 * C_Body     // Нижняя тень
+C_WhiteBody = open < close              // Бычий тренд
+C_BlackBody = open > close              // Медвежий тренд
+C_IsInsideBar = C_BodyHi[1] > C_BodyHi and C_BodyLo[1] < C_BodyLo
+C_ShadowEquals = C_UpShadow == C_DnShadow or (abs(C_UpShadow - C_DnShadow) / C_DnShadow * 100) < C_ShadowEqualsPercent and (abs(C_DnShadow - C_UpShadow) / C_UpShadow * 100) < C_ShadowEqualsPercent
+C_IsDojiBody = C_Range > 0 and C_Body <= C_Range * C_DojiBodyPercent / 100
+C_Doji = C_IsDojiBody and C_ShadowEquals
+
+patternLabelPosLow = low - (atr(30) * 0.6)
+patternLabelPosHigh = high + (atr(30) * 0.6)
+
+CandleType = input(title = "Pattern Type", defval="All", options=["Bullish", "Bearish", "Neutral", "All", "Except Neutral"])
+language = input(title = "Language", defval="English + 中文", options=["English", "中文", "English + 中文"])
+
+bullishColor = input(title="Bullish Color", type=input.color, defval=color.green)
+bearishColor = input(title="Bearish Color", type=input.color, defval=color.red)
+neutralColor = input(title="Neutral Color", type=input.color, defval=color.gray)
+textColor = input(title="Text Color", type=input.color, defval=color.white)
+
+getLabel(name) => 
+    (name == 'none') ? label.style_none : (name == 'xcross') ? label.style_xcross : (name == 'cross') ? label.style_cross : (name == 'triangle up') ? label.style_triangleup : (name == 'triangle down') ? label.style_triangledown : (name == 'flag') ? label.style_flag : (name == 'circle') ? label.style_circle : (name == 'arrow up') ? label.style_arrowup : (name == 'arrow down') ? label.style_arrowdown : (name == 'label up') ? label.style_label_up : (name == 'label down') ? label.style_label_down : (name == 'square') ? label.style_square : label.style_diamond
+
+bullishLabel = getLabel(input(title="Bullish Label", options=['none', 'xcross', 'cross', 'triangle up', 'triangle down', 'flag', 'circle', 'arrow up', 'arrow down', 'label up', 'label down', 'square', 'diamond'], defval='label up'))
+
+bearishLabel = getLabel(input(title="Bearish Label", options=['none', 'xcross', 'cross', 'triangle up', 'triangle down', 'flag', 'circle', 'arrow up', 'arrow down', 'label up', 'label down', 'square', 'diamond'], defval='label down'))
+
+neutralLabel = getLabel(input(title="Neutral Label", options=['none', 'xcross', 'cross', 'triangle up', 'triangle down', 'flag', 'circle', 'arrow up', 'arrow down', 'label up', 'label down', 'square', 'diamond'], defval='label up'))
+
+// ------------------------- bullish ------------------------- //
+MarubozuWhiteInput = input(title = "Marubozu White 光头光脚阳线", defval=true) 
+HammerInput = input(title = "Hammer 锤子", defval=true) 
+InvertedHammerInput = input(title = "Inverted Hammer 倒锤子", defval=true) 
+LongLowerShadowInput = input(title = "Long Lower Shadow 长下影线", defval=true) 
+
+UpsideTasukiGapInput = input(title = "Upside Tasuki Gap 旭日东升", defval=true) 
+RisingWindowInput = input(title = "Rising Window 跳空上涨", defval=true) 
+PiercingInput = input(title = "Piercing 曙光初现", defval=true) 
+BullishEngulfingInput = input(title = "Engulfing 上涨吞没", defval=true) 
+TweezerBottomInput = input(title = "Tweezer Bottom 平底", defval=true) 
+
+BullishAbandonedBabyInput = input(title = "Abandoned Baby 看涨弃婴", defval=true) 
+MorningStarInput = input(title = "Morning Star 早晨之星", defval=true) 
+MorningDojiStarInput = input(title = "Morning Doji Star 晨星十字", defval=true) 
+DragonflyDojiInput = input(title = "Dragonfly Doji 蜻蜓十字", defval=true) 
+ThreeWhiteSoldiersInput = input(title = "Three White Soldiers 红三兵", defval=true) 
+RisingThreeMethodsInput = input(title = "Rising Three Methods 上升三法", defval=true)
+TriStarInput = input(title = "Tri-Star 底部三星", defval=true) 
+
+// ------------------------- bearish ------------------------- //
+MarubozuBlackInput = input(title = "Marubozu Black 光头光脚阴线", defval=true) 
+GravestoneDojiInput = input(title = "Gravestone Doji 墓碑十字", defval=true) 
+HangingManInput = input(title = "Hanging Man 上吊线", defval=true) 
+LongUpperShadowInput = input(title = "Long Upper Shadow 长上影线", defval=true) 
+
+DownsideTasukiGapInput = input(title = "Downside Tasuki Gap 倾盆大雨", defval=true) 
+FallingWindowInput = input(title = "Falling Window 跳空下跌", defval=true) 
+DarkCloudCoverInput = input(title = "Dark Cloud Cover 乌云压顶", defval=true) 
+BearishEngulfingInput = input(title = "Engulfing 下跌吞没", defval=true) 
+TweezerTopInput = input(title = "Tweezer Top 平顶", defval=true) 
+
+AbandonedBabyInput = input(title = "Abandoned Baby 弃婴", defval=true) 
+EveningDojiStarInput = input(title = "Evening Doji Star 黄昏十字星", defval=true) 
+EveningStarInput = input(title = "Evening Star 黄昏之星", defval=true) 
+ThreeBlackCrowsInput = input(title = "Three Black Crows 三只乌鸦", defval=true) 
+FallingThreeMethodsInput = input(title = "Falling Three Methods 下降三法", defval=true) 
+ShootingStarInput = input(title = "Shooting Star 流星", defval=true) 
+BearishTriStarInput = input(title = "Tri-Star 顶部三星", defval=true) 
+
+// ------------------------- neutral ------------------------- //
+DojiInput = input(title = "Doji 十字线", defval=true) 
+DojiStarInput = input(title = "Doji Star 十字星", defval=true)
+SpinningTopBlackInput = input(title = "Spinning Top Black 纺锤阴线", defval=true) 
+SpinningTopWhiteInput = input(title = "Spinning Top White 纺锤阳线", defval=true) 
+HaramiCrossInput = input(title = "Harami Cross 十字胎", defval=true) 
+HaramiInput = input(title = "Harami 身怀六甲", defval=true) 
+
+KickingInput = input(title = "Kicking 不知道咋翻译", defval=true) 
+OnNeckInput = input(title = "On Neck 不知道咋翻译", defval=true) 
+
+var showBearishSignal = (CandleType =="Bearish" or CandleType == "All" or CandleType == "Except Neutral")
+var showBullishSignal = (CandleType =="Bullish" or CandleType == "All" or CandleType == "Except Neutral")
+var showNeutralSignal = (CandleType =="Neutral" or CandleType == "All")
+
+getBullishLabel(text, tooltip) =>
+    label.new(bar_index, patternLabelPosLow, text = text, style = bullishLabel, color = bullishColor, textcolor = textColor, tooltip = tooltip)
+getBearishLabel(text, tooltip) =>
+    label.new(bar_index, patternLabelPosHigh, text = text, style = bearishLabel, color = bearishColor, textcolor = textColor, tooltip = tooltip)
+getNeutralLabel(text, tooltip) =>
+    label.new(bar_index, patternLabelPosLow, text = text, style = neutralLabel, color = neutralColor, textcolor = textColor, tooltip = tooltip)
+
+_getBullishLabel(msg_EN, msg_CN, label_EN, label_CN) =>
+    tooltipMsg = language == "English" ? msg_EN : language == "中文" ? msg_CN : msg_EN + '\n\n' + msg_CN
+    labelText = language == "English" ? label_EN : language == "中文" ? label_CN : label_EN + '\n' + label_CN
+    getBullishLabel(labelText, tooltipMsg)
+
+_getBearishLabel(msg_EN, msg_CN, label_EN, label_CN) =>
+    tooltipMsg = language == "English" ? msg_EN : language == "中文" ? msg_CN : msg_EN + '\n\n' + msg_CN
+    labelText = language == "English" ? label_EN : language == "中文" ? label_CN : label_EN + '\n' + label_CN
+    getBearishLabel(labelText, tooltipMsg)
+
+_getNeutralLabel(msg_EN, msg_CN, label_EN, label_CN) =>
+    tooltipMsg = language == "English" ? msg_EN : language == "中文" ? msg_CN : msg_EN + '\n\n' + msg_CN
+    labelText = language == "English" ? label_EN : language == "中文" ? label_CN : label_EN + '\n' + label_CN
+    getNeutralLabel(labelText, tooltipMsg)
+
+C_OnNeckBearishNumberOfCandles = 2
+C_OnNeckBearish = false
+if C_DownTrend and C_BlackBody[1] and C_LongBody[1] and C_WhiteBody and open < close[1] and C_SmallBody and C_Range!=0 and abs(close-low[1])<=C_BodyAvg*0.05
+	C_OnNeckBearish := true
+alertcondition(C_OnNeckBearish, title = "On Neck", message = "New On Neck - Bearish pattern detected.")
+if C_OnNeckBearish and OnNeckInput and showBearishSignal
+    var msg_EN = "Ниже шеи\nМодель, возникающая при нисходящей тенденции и состоящая из двух свечей, первая из которых черная, а вторая – белая с маленьким телом и ценой закрытия на уровне минимумов черной свечи. После прорыва минимальных отметок белой свечи падение должно продолжиться. "
+    var msg_CN = "On-Neck Line"
+
+    var label_EN = "НШ"
+    var label_CN = "Ниже шеи"
+
+    _getBearishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_RisingWindowBullishNumberOfCandles = 2
+C_RisingWindowBullish = false
+if C_UpTrend[1] and (C_Range!=0 and C_Range[1]!=0) and low > high[1]
+	C_RisingWindowBullish := true
+alertcondition(C_RisingWindowBullish, title = "Rising Window", message = "New Rising Window - Обнаружен бычий паттерн.")
+if C_RisingWindowBullish and RisingWindowInput and showBullishSignal
+    var msg_EN = "Окно при восходящей тенденции\nОкно – это разрыв на графике между экстремальными ценами двух смежных сессий. Японские аналитики считают, что, во-первых, следует играть в направлении, указанном окном, а во-вторых, что окна указывают на будущие области поддержки и сопротивления. Так, на растущем рынке окно предвещает дальнейший подъем и выступает в качестве дна, от которого цены будут отталкиваться при попытках откатиться вниз. Если продавцам удастся закрыть окно и их давление после этого не спадет, то восходящий тренд можно будет считать завершенным. Аналогичным образом окно, возникшее на падающем рынке, предвещает дальнейшее снижение, а любые попытки восстановиться будут встречать сопротивление на его отметках. Но если быкам удастся закрыть окно и удержать цены выше, значит нисходящему тренду пришел конец. Поскольку цена возвращается к отметкам окна в ходе коррекций, на растущем рынке их стоит рассматривать как зону покупок. Но если давление продавцов сохраняется и после закрытия окна, следует ликвидировать длинные позиции и подумать об открытии коротких. Когда окно возникает на падающем рынке, стратегия должна быть прямо противоположной."
+    var msg_CN = "Rising Window"
+
+    var label_EN = "ОВТ"
+    var label_CN = "Окно при восходящей тенденции"
+
+    _getBullishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+
+C_FallingWindowBearishNumberOfCandles = 2
+C_FallingWindowBearish = false
+if C_DownTrend[1] and (C_Range!=0 and C_Range[1]!=0) and high < low[1]
+	C_FallingWindowBearish := true
+alertcondition(C_FallingWindowBearish, title = "Falling Window", message = "New Falling Window - Обнаружен медвежий паттерн.")
+if C_FallingWindowBearish and FallingWindowInput and showBearishSignal
+    var msg_EN = "Падающее окно\nОкно – это разрыв на графике между экстремальными ценами двух смежных сессий. Японские аналитики считают, что, во-первых, следует играть в направлении, указанном окном, а во-вторых, что окна указывают на будущие области поддержки и сопротивления. Так, на растущем рынке окно предвещает дальнейший подъем и выступает в качестве дна, от которого цены будут отталкиваться при попытках откатиться вниз. Если продавцам удастся закрыть окно и их давление после этого не спадет, то восходящий тренд можно будет считать завершенным. Аналогичным образом окно, возникшее на падающем рынке, предвещает дальнейшее снижение, а любые попытки восстановиться будут встречать сопротивление на его отметках. Но если быкам удастся закрыть окно и удержать цены выше, значит нисходящему тренду пришел конец. Поскольку цена возвращается к отметкам окна в ходе коррекций, на растущем рынке их стоит рассматривать как зону покупок. Но если давление продавцов сохраняется и после закрытия окна, следует ликвидировать длинные позиции и подумать об открытии коротких. Когда окно возникает на падающем рынке, стратегия должна быть прямо противоположной."
+    var msg_CN = "Falling Window"
+
+    var label_EN = "ОНТ"
+    var label_CN = "Окно при нисходящей тенденции"
+
+    _getBearishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_FallingThreeMethodsBearishNumberOfCandles = 5
+C_FallingThreeMethodsBearish = false
+if C_DownTrend[4] and (C_LongBody[4] and C_BlackBody[4]) and (C_SmallBody[3] and C_WhiteBody[3] and open[3]>low[4] and close[3]<high[4]) and (C_SmallBody[2] and C_WhiteBody[2] and open[2]>low[4] and close[2]<high[4]) and (C_SmallBody[1] and C_WhiteBody[1] and open[1]>low[4] and close[1]<high[4]) and (C_LongBody and C_BlackBody and close<close[4])
+	C_FallingThreeMethodsBearish := true
+alertcondition(C_FallingThreeMethodsBearish, title = "Falling Three Methods", message = "New Falling Three Methods - Обнаружен медвежий паттерн.")
+if C_FallingThreeMethodsBearish and FallingThreeMethodsInput and showBearishSignal
+    var msg_EN = "Медвежьи три ступени\nФормируются при нисходящей тенденции и напоминает фигуры «медвежий флаг» и «медвежий вымпел». За длинной черной свечой следуют порядка трех свечей с короткими телами, обычно белыми, лежащими в границах ценового диапазона длинной свечи, включая ее тени. Следующая сессия должна начаться ниже предыдущей цены закрытия и завершиться ниже закрытия первой длинной черной свечи. После этого рынок продолжит снижение."
+    var msg_CN = "Falling Three Methods"
+
+    var label_EN = "МТС"
+    var label_CN = "Медвежьи три ступени"
+
+    _getBearishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_RisingThreeMethodsBullishNumberOfCandles = 5
+C_RisingThreeMethodsBullish = false
+if C_UpTrend[4] and (C_LongBody[4] and C_WhiteBody[4]) and (C_SmallBody[3] and C_BlackBody[3] and open[3]<high[4] and close[3]>low[4]) and (C_SmallBody[2] and C_BlackBody[2] and open[2]<high[4] and close[2]>low[4]) and (C_SmallBody[1] and C_BlackBody[1] and open[1]<high[4] and close[1]>low[4]) and (C_LongBody and C_WhiteBody and close>close[4])
+	C_RisingThreeMethodsBullish := true
+alertcondition(C_RisingThreeMethodsBullish, title = "Rising Three Methods", message = "New Rising Three Methods - Обнаружен бычий паттерн.")
+if C_RisingThreeMethodsBullish and RisingThreeMethodsInput and showBullishSignal
+    var msg_EN = "Бычьи три ступени\nМодель «бычьи три ступени» напоминает фигуры западного тех-анализа «бычий флаг» и «бычий вымпел», однако идея, лежащая в ее основе, гораздо старше и уходит корнями в XVIII в. Три ступени можно рассматривать как период отдыха от торговли и от битвы, или, выражаясь современным языком, «передышку», которую рынок берет на время формирования маленьких свечей."
+    var msg_CN = "Rising Three Methods"
+
+    var label_EN = "БТС"
+    var label_CN = "Бычьи три ступени"
+
+    _getBullishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_TweezerTopBearishNumberOfCandles = 2
+C_TweezerTopBearish = false
+if C_UpTrend[1] and (not C_IsDojiBody or (C_HasUpShadow and C_HasDnShadow)) and abs(high-high[1]) <= C_BodyAvg*0.05 and C_WhiteBody[1] and C_BlackBody and C_LongBody[1]
+	C_TweezerTopBearish := true
+alertcondition(C_TweezerTopBearish, title = "Tweezer Top", message = "New Tweezer Top - Обнаружен медвежий паттерн.")
+if C_TweezerTopBearish and TweezerTopInput and showBearishSignal
+    var msg_EN = "Вершина Пинцет\nМодель «пинцет» состоит как минимум из двух свечей с одинаковыми максимумами либо минимумами и называется так потому, что входящие в нее свечи напоминают разведенные зубцы пинцета. Если эта модель формируется на растущем рынке и у свечей совпадают максимумы, то она называется вершиной «пинцет», если на падающем и у свечей совпадают минимумы – то основанием «пинцет». Пинцеты могут быть образованы телами свечей, тенями и/или свечами типа «дожи», расположенными рядом либо недалеко друг от друга. Обычно эти модели не являются долгосрочными сигналами разворота, но они приобретают важное значение, когда появляются после длительного тренда либо подтверждаются сигналами других возникающих при этом моделей."
+    var msg_CN = "Tweezer Top"
+
+    var label_EN = "ВП"
+    var label_CN = "Вершина Пинцет"
+
+    _getBearishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_TweezerBottomBullishNumberOfCandles = 2
+C_TweezerBottomBullish = false
+if C_UpTrend[1] and (not C_IsDojiBody or (C_HasUpShadow and C_HasDnShadow)) and abs(low-low[1]) <= C_BodyAvg*0.05 and C_BlackBody[1] and C_WhiteBody and C_LongBody[1]
+	C_TweezerBottomBullish := true
+alertcondition(C_TweezerBottomBullish, title = "Tweezer Bottom", message = "New Tweezer Bottom - Обнаружен бычий паттерн.")
+if C_TweezerBottomBullish and TweezerBottomInput and showBullishSignal
+    var msg_EN = "Основание Пинцет\nМодель «пинцет» состоит как минимум из двух свечей с одинаковыми максимумами либо минимумами и называется так потому, что входящие в нее свечи напоминают разведенные зубцы пинцета. Если эта модель формируется на растущем рынке и у свечей совпадают максимумы, то она называется вершиной «пинцет», если на падающем и у свечей совпадают минимумы – то основанием «пинцет». Пинцеты могут быть образованы телами свечей, тенями и/или свечами типа «дожи», расположенными рядом либо недалеко друг от друга. Обычно эти модели не являются долгосрочными сигналами разворота, но они приобретают важное значение, когда появляются после длительного тренда либо подтверждаются сигналами других возникающих при этом моделей"
+    var msg_CN = "Tweezer Bottom"
+
+    var label_EN = "ОП"
+    var label_CN = "Основание Пинцет"
+
+    _getBullishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_DarkCloudCoverBearishNumberOfCandles = 2
+C_DarkCloudCoverBearish = false
+if (C_UpTrend[1] and C_WhiteBody[1] and C_LongBody[1]) and (C_BlackBody and open >= high[1] and  close < C_BodyMiddle[1] and close > open[1])
+	C_DarkCloudCoverBearish := true
+alertcondition(C_DarkCloudCoverBearish, title = "Dark Cloud Cover", message = "New Dark Cloud Cover - Обнаружен медвежий паттерн.")
+if C_DarkCloudCoverBearish and DarkCloudCoverInput and showBearishSignal
+    var msg_EN = "Завеса из темных облаков\nОна тоже состоит из двух свечей, возникает после восходящего тренда или у верхней границы бокового коридора и является сигналом разворота на вершине. В первый день на графике формируется свеча с длинным белым телом, а во второй торги открываются на отметке выше предыдущего дневного диапазона (т. е. цена открытия превышает верхнюю тень первой свечи). Однако завершается вторая сессия снижением в район дневного минимума, который должен находиться в границах предыдущего белого тела. Чем сильнее черная свеча перекрывает белую, тем выше вероятность разворота. Некоторые японские аналитики считают, что таким образом должно перекрываться не меньше половины белого тела. Если этого не происходит, то, вероятно, стоит подождать дополнительных подтверждений медвежьему сигналу завесы из темных облаков. Причины медвежьего характера этой модели вполне понятны. Она образуется в период восходящего тренда, когда быки полностью контролируют ситуацию: на графике возникает убедительная белая свеча, а следующие торги начинаются с гэпа вверх. Но вот ралли прерывается, и более того – сессия завершается вблизи или на уровне дневного минимума, который лежит значительно ниже предыдущей цены закрытия. После этого держатели длинных позиций должны будут дважды подумать о том, стоит ли им сохранять свои портфели. А у того, кто ждал подходящего момента для открытия коротких позиций, появляется хороший ориентир для установки стоп-приказов – это максимальная цена второй свечи в модели «завеса из темных облаков»."
+    var msg_CN = "Dark Cloud Cover"
+
+    var label_EN = "ЗТО"
+    var label_CN = "Завеса из темных облаков"
+
+    _getBearishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_DownsideTasukiGapBearishNumberOfCandles = 3
+C_DownsideTasukiGapBearish = false
+if C_LongBody[2] and C_SmallBody[1] and C_DownTrend and C_BlackBody[2] and C_BodyHi[1] < C_BodyLo[2] and C_BlackBody[1] and C_WhiteBody and C_BodyHi <= C_BodyLo[2] and C_BodyHi >= C_BodyHi[1]
+	C_DownsideTasukiGapBearish := true
+alertcondition(C_DownsideTasukiGapBearish, title = "Downside Tasuki Gap", message = "New Downside Tasuki Gap - Обнаружен медвежий паттерн.")
+if C_DownsideTasukiGapBearish and DownsideTasukiGapInput and showBearishSignal
+    var msg_EN = "Гэп тасуки вниз\nГэп тасуки вверх возникает, когда рынок находится в восходящем тренде. После гэпа формируется белая свеча, а сразу за ней – черная с ценой открытия в границах тела белой свечи и ценой закрытия ниже него, при этом тела свечей должны быть примерно одинаковыми по размеру. Гэп тасуки вверх служит сигналом к покупке в день формирования черной свечи, если окно при этом не закрывается, а в противном случае следует считать, что силы продавцов достаточно велики, и бычий сигнал не подтвержден. Обратное правило применимо по отношению к аналогичной модели при нисходящем тренде – гэпу тасуки вниз. Обе эти модели на реальных графиках встречаются редко."
+    var msg_CN = "Downside Tasuki Gap"
+
+    var label_EN = "DTG"
+    var label_CN = "倾盆大雨"
+
+    _getBearishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_UpsideTasukiGapBullishNumberOfCandles = 3
+C_UpsideTasukiGapBullish = false
+if C_LongBody[2] and C_SmallBody[1] and C_UpTrend and C_WhiteBody[2] and C_BodyLo[1] > C_BodyHi[2] and C_WhiteBody[1] and C_BlackBody and C_BodyLo >= C_BodyHi[2] and C_BodyLo <= C_BodyLo[1]
+	C_UpsideTasukiGapBullish := true
+alertcondition(C_UpsideTasukiGapBullish, title = "Upside Tasuki Gap", message = "New Upside Tasuki Gap - Обнаружен бычий паттерн.")
+if C_UpsideTasukiGapBullish and UpsideTasukiGapInput and showBullishSignal
+    var msg_EN = "Гэп тасуки вверх\nГэп тасуки вверх возникает, когда рынок находится в восходящем тренде. После гэпа формируется белая свеча, а сразу за ней – черная с ценой открытия в границах тела белой свечи и ценой закрытия ниже него, при этом тела свечей должны быть примерно одинаковыми по размеру. Гэп тасуки вверх служит сигналом к покупке в день формирования черной свечи, если окно при этом не закрывается, а в противном случае следует считать, что силы продавцов достаточно велики, и бычий сигнал не подтвержден. Обратное правило применимо по отношению к аналогичной модели при нисходящем тренде – гэпу тасуки вниз. Обе эти модели на реальных графиках встречаются редко."
+    var msg_CN = "Upside Tasuki Gap"
+
+    var label_EN = "ГТВ"
+    var label_CN = "Гэп Тасуки вверх"
+
+    _getBullishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_EveningDojiStarBearishNumberOfCandles = 3
+C_EveningDojiStarBearish = false
+if C_LongBody[2] and C_IsDojiBody[1] and C_LongBody and C_UpTrend and C_WhiteBody[2] and C_BodyLo[1] > C_BodyHi[2] and C_BlackBody and C_BodyLo <= C_BodyMiddle[2] and C_BodyLo > C_BodyLo[2] and C_BodyLo[1] > C_BodyHi
+	C_EveningDojiStarBearish := true
+alertcondition(C_EveningDojiStarBearish, title = "Evening Doji Star", message = "New Evening Doji Star - Обнаружен медвежий паттерн.")
+if C_EveningDojiStarBearish and EveningDojiStarInput and showBearishSignal
+    var msg_EN = "Вечерняя звезда Дожи\nЕсли на растущем рынке свеча типа «Дожи» образуется с гэпом вверх по отношению к телу предыдущей свечи или на падающем рынке – с гэпом вниз, то ее называют звездой дожи. Ее появление свидетельствует о том, что предыдущая тенденция может измениться, однако для подтверждения этого сигнала разворота нужно дождаться еще одной свечи. На растущем рынке у этой третьей свечи должно быть длинное черное тело, перекрывающее значительную часть белого тела первой свечи. Такая модель называется вечерняя звезда дожи (evening doji star) и является разновидностью модели «вечерняя звезда». Различие между ними в том, что у первой модели в центре находится свеча типа «Дожи», а у второй – обычная свеча с маленьким телом. Вечерняя звезда дожи является более сильным сигналом. Появление звезды дожи на растущем рынке часто предвещает разворот на вершине, но имейте в виду, что если сразу после этой свечи с гэпом формируется свеча с белым телом (то есть не возникает модели «вечерняя звезда дожи»), то медвежий сигнал не подтверждается."
+    var msg_CN = "Evening Doji Star"
+
+    var label_EN = "ВЗД"
+    var label_CN = "Вечерняя звезда Дожи"
+
+    _getBearishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_DojiStarBearishNumberOfCandles = 2
+C_DojiStarBearish = false
+if C_UpTrend and C_WhiteBody[1] and C_LongBody[1] and C_IsDojiBody and C_BodyLo > C_BodyHi[1]
+	C_DojiStarBearish := true
+alertcondition(C_DojiStarBearish, title = "Doji Star", message = "New Doji Star - Обнаружен медвежий паттерн.")
+if C_DojiStarBearish and DojiStarInput and showBearishSignal
+    var msg_EN = "Звезда Дожи\nЕсли на растущем рынке свеча типа «дожи» образуется с гэпом вверх по отношению к телу предыдущей свечи или на падающем рынке – с гэпом вниз, то ее называют звездой дожи. Ее появление свидетельствует о том, что предыдущая тенденция может измениться, однако для подтверждения этого сигнала разворота нужно дождаться еще одной свечи."
+    var msg_CN = "Doji Star"
+
+    var label_EN = "ЗД"
+    var label_CN = "Звезда Дожи"
+
+    _getBearishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_DojiStarBullishNumberOfCandles = 2
+C_DojiStarBullish = false
+if C_DownTrend and C_BlackBody[1] and C_LongBody[1] and C_IsDojiBody and C_BodyHi < C_BodyLo[1]
+	C_DojiStarBullish := true
+alertcondition(C_DojiStarBullish, title = "Doji Star", message = "New Doji Star - Обнаружен бычий паттерн.")
+if C_DojiStarBullish and DojiStarInput and showBullishSignal
+    var msg_EN = "Звезда Дожи\nЕсли на растущем рынке свеча типа «дожи» образуется с гэпом вверх по отношению к телу предыдущей свечи или на падающем рынке – с гэпом вниз, то ее называют звездой дожи. Ее появление свидетельствует о том, что предыдущая тенденция может измениться, однако для подтверждения этого сигнала разворота нужно дождаться еще одной свечи."
+    var msg_CN = "Doji Star"
+
+    var label_EN = "ЗД"
+    var label_CN = "Звезда Дожи"
+
+    _getBullishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_MorningDojiStarBullishNumberOfCandles = 3
+C_MorningDojiStarBullish = false
+if C_LongBody[2] and C_IsDojiBody[1] and C_LongBody and C_DownTrend and C_BlackBody[2] and C_BodyHi[1] < C_BodyLo[2] and C_WhiteBody and C_BodyHi >= C_BodyMiddle[2] and C_BodyHi < C_BodyHi[2] and C_BodyHi[1] < C_BodyLo
+	C_MorningDojiStarBullish := true
+alertcondition(C_MorningDojiStarBullish, title = "Morning Doji Star", message = "New Morning Doji Star - Обнаружен бычий паттерн.")
+if C_MorningDojiStarBullish and MorningDojiStarInput and showBullishSignal
+    var msg_EN = "Утренняя звезда Дожи\nВ свою очередь, на падающем рынке звезда дожи образуется после свечи с черным телом и должна быть подтверждена следующей за ней свечой с длинным белым телом, перекрывающей значительную черного. Такая модель предвещает разворот в основании и называется утренняя звезда дожи (morning doji star). Если вместо белой свечи появляется с гэпом свеча с черным телом, значит бычий сигнал не оправдался. В случае со звездами Дожи всегда важно дожидаться одной или двух следующих свечей для подтверждения сигнала."
+    var msg_CN = "Morning Doji Star"
+
+    var label_EN = "УЗД"
+    var label_CN = "Утренняя звезда Дожи"
+
+    _getBullishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_PiercingBullishNumberOfCandles = 2
+C_PiercingBullish = false
+if (C_DownTrend[1] and C_BlackBody[1] and C_LongBody[1]) and (C_WhiteBody and open <= low[1] and close > C_BodyMiddle[1] and close < open[1])
+	C_PiercingBullish := true
+alertcondition(C_PiercingBullish, title = "Piercing", message = "New Piercing - Обнаружен бычий паттерн.")
+if C_PiercingBullish and PiercingInput and showBullishSignal
+    var msg_EN = "Просвет в облаках\nЕсли завеса из темных облаков сигнализирует о развороте на вершине, то ее противоположность – о развороте в основании. Просвет в облаках появляется на падающем рынке и состоит из двух свечей, у первой из которых тело черное, а у второй – длинное белое. Во второй день открытие торгов происходит на отметках значительно ниже минимумов предыдущей сессии, но затем цена повышается, образуя тело, перекрывающее не меньше половины тела предыдущей свечи. Модель «просвет в облаках» внешне напоминает бычью модель поглощения, только в первом случае белое тело лишь частично перекрывает предшествующее черное, а во втором – целиком. Чем большая часть черного тела оказывается перекрытой, тем выше вероятность разворота в основании. Но если на графике затем появляется длинная черная свеча, у которой цена закрытия ниже минимумов, достигнутых при возникновении просвета в облаках или бычьей модели поглощения, то это будет означать, что сигнал разворота не сработал и нисходящий тренд, скорее всего, продолжится. Психология рынка в момент образования просвета в облаках следующая: сначала на бирже господствует нисходящая тенденция, и появление медвежьей свечи с черным телом подтверждает ее силу, как и гэп вниз на открытии следующих торгов. Но потом цена начинает расти, и к концу дня не просто возвращается к предыдущей отметке закрытия, а поднимается значительно выше. Увидев, что рынок не смог удержаться на новых минимумах, медведи начинают задумываться о ликвидации открытых позиций, а трейдеры, ждавшие подходящего момента для покупок, – о начале активных действий."
+    var msg_CN = "Piercing"
+
+    var label_EN = "ПвО"
+    var label_CN = "Просвет в облаках"
+
+    _getBullishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_HammerBullishNumberOfCandles = 1
+C_HammerBullish = false
+if C_SmallBody and C_Body > 0 and C_BodyLo > hl2 and C_DnShadow >= C_Factor * C_Body and not C_HasUpShadow
+    if C_DownTrend
+        C_HammerBullish := true
+alertcondition(C_HammerBullish, title = "Молот", message = "Молот - Определён бычий сигнал.")
+if C_HammerBullish and HammerInput and showBullishSignal
+    var msg_EN = "Молот\nЕсли у Молота бычье тело, то такой сигнал считается более сильным. Вероятность разворота выше. Важно отметить, что перед образованием модели должен быть явный медвежий тренд. Только в этом случае сигнал можно рассматривать как рабочий. Удивительная особенность этих свечей заключается в том, что они могут быть как бычьими, так и медвежьими в зависимости от рыночной тенденции в момент их возникновения на графике. Если тренд нисходящий, то следует ожидать его завершения, а свеча в этом случае будет называться молотом. Интересно, что ее японское название – такури, что в буквальном переводе означает нечто вроде «попытки измерить глубину, нащупывая дно ногой»."
+    var msg_CN = "Hammer"
+
+    var label_EN = "М"
+    var label_CN = "Молот"
+
+    _getBullishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+C_HangingManBearishNumberOfCandles = 1
+C_HangingManBearish = false
+if C_SmallBody and C_Body > 0 and C_BodyLo > hl2 and C_DnShadow >= C_Factor * C_Body and not C_HasUpShadow
+	if C_UpTrend
+	    C_HangingManBearish := true
+alertcondition(C_HangingManBearish, title = "Hanging Man", message = "New Hanging Man - Обнаружен медвежий паттерн.")
+if C_HangingManBearish and HangingManInput and showBearishSignal
+    var msg_EN = "Повешанный\nЧем длиннее нижняя тень, чем короче верхняя тень и чем меньше тело, тем сильнее бычий сигнал молота или медвежий сигнал повешенного. Белое тело молота означает, что в течение торговой сессии цены стремительно падали, но к ее закрытию поднялись в район дневных максимумов, что свидетельствует об усилении бычьих настроений. Черное тело повешенного говорит о том, что рынок не смог вернуться к отметкам, на которых начинал день, и значит можно ожидать дальнейшего снижения. Прежде чем реагировать на повешенного, очень важно дождаться дополнительных медвежьих сигналов, ведь эта разновидность свечи возникает на рынке, который полон бычьей энергии. Торги в день ее образования открываются вблизи максимальных отметок, но затем происходит масштабная распродажа, после которой к концу сессии цена поднимается ближе к отметкам открытия. Из этого еще нельзя делать вывод, что повешенный обязательно окажется сигналом разворота на вершине. Тем не менее его возникновение говорит о том, что рынок стал восприимчивым к атакам продавцов. Если на следующий день торги начнутся ниже тела повешенного, то покупавшие по ценам открытия или закрытия предыдущего дня останутся с убыточными позициями."
+    var msg_CN = "Hanging Man"
+
+    var label_EN = "П"
+    var label_CN = "Повешанный"
+
+    _getBearishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_ShootingStarBearishNumberOfCandles = 1
+C_ShootingStarBearish = false
+if C_SmallBody and C_Body > 0 and C_BodyHi < hl2 and C_UpShadow >= C_Factor * C_Body and not C_HasDnShadow
+	if C_UpTrend
+	    C_ShootingStarBearish := true
+alertcondition(C_ShootingStarBearish, title = "Shooting Star", message = "New Shooting Star - Обнаружен медвежий паттерн.")
+if C_ShootingStarBearish and ShootingStarInput and showBearishSignal
+    var msg_EN = "Падающая звезда\nМодель падающая звезда состоит из двух свечей и предупреждает о вероятном достижении вершины, но при этом она является более слабым сигналом разворота, чем вечерняя звезда. Внешний вид второй свечи этой модели действительно напоминает падение звезды, оставляющей след: тело у нее маленькое, находится в нижней части ценового диапазона, а верхняя тень длинная. Цвет тела значения не имеет. Формирование этой модели говорит о том, что рынок попытался, но не смог продемонстрировать устойчивый подъем: открытие произошло вблизи минимальных отметок сессии, затем цены быстро росли, но в итоге вернулись в район открытия."
+    var msg_CN = "Shooting Star"
+
+    var label_EN = "ПЗ"
+    var label_CN = "Падающая звезда"
+
+    _getBearishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_InvertedHammerBullishNumberOfCandles = 1
+C_InvertedHammerBullish = false
+if C_SmallBody and C_Body > 0 and C_BodyHi < hl2 and C_UpShadow >= C_Factor * C_Body and not C_HasDnShadow
+    if C_DownTrend
+        C_InvertedHammerBullish := true
+alertcondition(C_InvertedHammerBullish, title = "Inverted Hammer", message = "New Inverted Hammer - Обнаружен бычий паттерн.")
+if C_InvertedHammerBullish and InvertedHammerInput and showBullishSignal
+    var msg_EN = "Перевёрнутый молот\nПеревернутый молот предупреждает о развороте в основании. Как и обычный молот, перевернутый возникает после нисходящего тренда. Всегда важно дождаться, чтобы следующая за перевернутым молотом свеча подтвердила его бычий характер. Таким подтверждением послужит, например, образование гэпа вверх между телами свечей (чем сильнее он будет – тем лучше) или появление сильной белой свечи, поднимающейся до локальных максимумов."
+    var msg_CN = "Inverted Hammer"
+
+    var label_EN = "ПМ"
+    var label_CN = "Перевёрнутый молот"
+
+    _getBullishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_MorningStarBullishNumberOfCandles = 3
+C_MorningStarBullish = false
+if C_LongBody[2] and C_SmallBody[1] and C_LongBody
+    if C_DownTrend and C_BlackBody[2] and C_BodyHi[1] < C_BodyLo[2] and C_WhiteBody and C_BodyHi >= C_BodyMiddle[2] and C_BodyHi < C_BodyHi[2] and C_BodyHi[1] < C_BodyLo
+        C_MorningStarBullish := true
+alertcondition(C_MorningStarBullish, title = "Morning Star", message = "New Morning Star - Обнаружен бычий паттерн.")
+if C_MorningStarBullish and MorningStarInput and showBullishSignal
+    var msg_EN = "Утренняя звезда\nКак самая яркая звезда на утреннем небосклоне – планета Меркурий – предвещает восход солнца, так и модель утренняя звезда сигнализирует о грядущем повышении цен. Она является сигналом разворота в основании и состоит из свечи с длинным черным телом, за которой с гэпом вниз идет свеча с маленьким телом (эта комбинация представляет собой основную часть модели), а за ней – свеча с белым телом, перекрывающим значительную часть черного тела первого дня. В идеале на графике должны образоваться гэпы до и после среднего тела, но в реальности второй гэп возникает редко, что, впрочем, не влияет на силу бычьего сигнала."
+    var msg_CN = "Morning Star"
+
+    var label_EN = "УЗ"
+    var label_CN = "Утренняя звезда"
+
+    _getBullishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_EveningStarBearishNumberOfCandles = 3
+C_EveningStarBearish = false
+if C_LongBody[2] and C_SmallBody[1] and C_LongBody
+    if C_UpTrend and C_WhiteBody[2] and C_BodyLo[1] > C_BodyHi[2] and C_BlackBody and C_BodyLo <= C_BodyMiddle[2] and C_BodyLo > C_BodyLo[2] and C_BodyLo[1] > C_BodyHi
+        C_EveningStarBearish := true
+alertcondition(C_EveningStarBearish, title = "Evening Star", message = "New Evening Star - Обнаружен медвежий паттерн.")
+if C_EveningStarBearish and EveningStarInput and showBearishSignal
+    var msg_EN = "Вечерняя звезда\nВечерняя звезда служит сигналом разворота на вершине, она формируется, как правило, после восходящего тренда. Первая свеча этой модели имеет длинное белое тело, вторая – короткое тело любого цвета, а третья – черное тело, перекрывающее значительную часть белого. Обычно я сравниваю вечернюю звезду с переключающимся светофором: сначала светит зеленый сигнал (это бычье белое тело первой свечи), затем загорается желтый (предупреждающий знак средней свечи), и, наконец, его сменяет красный (третье черное тело подтверждает окончание бычьего тренда). В идеальной вечерней звезде, как в идеальной утренней, должны возникать гэпы между телами первой и второй, а также второй и третьей свечей. Однако мой опыт показывает, что второй гэп в этих моделях наблюдается редко и не является обязательным – гораздо важнее то, насколько сильно черное тело третьей свечи перекрывает белое тело первой."
+    var msg_CN = "Evening Star"
+
+    var label_EN = "ВЗ"
+    var label_CN = "Вечерняя звезда"
+
+    _getBearishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_MarubozuWhiteBullishNumberOfCandles = 1
+C_MarubozuShadowPercentWhite = 5.0
+C_MarubozuWhiteBullish = C_WhiteBody and C_LongBody and C_UpShadow <= C_MarubozuShadowPercentWhite/100*C_Body and C_DnShadow <= C_MarubozuShadowPercentWhite/100*C_Body and C_WhiteBody
+alertcondition(C_MarubozuWhiteBullish, title = "Marubozu White 光头光脚阳线", message = "New Marubozu White - Обнаружен бычий паттерн.")
+if C_MarubozuWhiteBullish and MarubozuWhiteInput and showBullishSignal
+    var msg_EN = "Белый Марибозу\nСвеча Марибозу белого цвета – это длинная свечная модель без теней. Если такая свеча сформировалась на графике Форекс, это указывает на продолжение восходящего движения. Белый Марибозу также называют бычьей моделью, которая указывает исключительно на рост цены"
+    var msg_CN = "Marubozu White"
+
+    var label_EN = "БМ"
+    var label_CN = "Белый Марибозу"
+
+    _getBullishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_MarubozuBlackBearishNumberOfCandles = 1
+C_MarubozuShadowPercentBearish = 5.0
+C_MarubozuBlackBearish = C_BlackBody and C_LongBody and C_UpShadow <= C_MarubozuShadowPercentBearish/100*C_Body and C_DnShadow <= C_MarubozuShadowPercentBearish/100*C_Body and C_BlackBody
+alertcondition(C_MarubozuBlackBearish, title = "Marubozu Black", message = "New Marubozu Black - Обнаружен медвежий паттерн.")
+if C_MarubozuBlackBearish and MarubozuBlackInput and showBearishSignal
+    var msg_EN = "Чёрный Марибозу\nЧерная Марибозу выглядит точно также, как и его брат, близнец (белый Марибозу). Отличие только в цвете. Итак, если трейдер видит на графике длинную свечу черного цвета – на рынке наблюдается медвежье направление, и нужно быть готовым к нисходящему движению."
+    var msg_CN = "Marubozu Black"
+
+    var label_EN = "ЧМ"
+    var label_CN = "Чёрный Марибозу"
+
+    _getBearishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_DojiNumberOfCandles = 1
+C_DragonflyDoji = C_IsDojiBody and C_UpShadow <= C_Body
+C_GravestoneDojiOne = C_IsDojiBody and C_DnShadow <= C_Body
+alertcondition(C_Doji and not C_DragonflyDoji and not C_GravestoneDojiOne, title = "Doji", message = "New Doji pattern detected.")
+if C_Doji and not C_DragonflyDoji and not C_GravestoneDojiOne and DojiInput and showNeutralSignal
+    var msg_EN = "Дожи\nТермин «доджи» на японском языке переводится как «одно и то же», и он относится к свечам, у которых цены открытия и закрытия более или менее одинаковы. Длина верхней и нижней теней может варьироваться. Классическая модель доджи является свечной моделью, которая указывает на неопределенность и неуверенность на рынке. Эта модель указывает на то, что ни покупатели, ни продавцы не контролируют ситуацию, и рынок находится в состоянии равновесия. Трейдеры интерпретируют присутствие модели доджи как сигнал для осторожности и ожидания дальнейших подтверждений или дополнительной информации, прежде чем принимать какие-либо решающие решения о покупке или продаже."
+    var msg_CN = "Doji"
+
+    var label_EN = "Д"
+    var label_CN = "Дожи"
+
+    _getNeutralLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_GravestoneDojiBearishNumberOfCandles = 1
+C_GravestoneDojiBearish = C_IsDojiBody and C_DnShadow <= C_Body
+alertcondition(C_GravestoneDojiBearish, title = "Gravestone Doji", message = "New Gravestone Doji - Обнаружен медвежий паттерн.")
+if C_GravestoneDojiBearish and GravestoneDojiInput and showBearishSignal
+    var msg_EN = "Надгробие Дожи\nОни образуются тогда, когда цены открытия и закрытия дожи соответствуют минимумам сессии. Чаще всего дожи-надгробия выступают сигналом разворота на вершинах, хотя иногда они встречается и в основаниях. Причины медвежьего характера дожи-надгробия понятны: рынок открывается на минимумах сессии, затем цены взлетают (в идеале к новым локальным максимумам), но в итоге возвращаются к стартовой отметке, заставляя тревожиться держателей длинных позиций. Чем длиннее верхняя тень и чем выше общий уровень цен, тем более медвежьим является сигнал свечи «дожи-надгробие»."
+    var msg_CN = "Gravestone Doji"
+
+    var label_EN = "НД"
+    var label_CN = "Надгробие Дожи"
+
+    _getBearishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_DragonflyDojiBullishNumberOfCandles = 1
+C_DragonflyDojiBullish = C_IsDojiBody and C_UpShadow <= C_Body
+alertcondition(C_DragonflyDojiBullish, title = "Dragonfly Doji", message = "New Dragonfly Doji - Обнаружен бычий паттерн.")
+if C_DragonflyDojiBullish and DragonflyDojiInput and showBullishSignal
+    var msg_EN = "Стрекоза Дожи\nУ свечи формируется длинная нижняя тень при минимальном теле. Верхней тени почти нет. Цвет значения не имеет. Комбинация говорит о прогнозируемом движении вверх."
+    var msg_CN = "Dragonfly Doji"
+
+    var label_EN = "СД"
+    var label_CN = "Стрекоза Дожи"
+
+    _getBullishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_HaramiCrossBullishNumberOfCandles = 2
+C_HaramiCrossBullish = C_LongBody[1] and C_BlackBody[1] and C_DownTrend[1] and C_IsDojiBody and high <= C_BodyHi[1] and low >= C_BodyLo[1]
+alertcondition(C_HaramiCrossBullish, title = "Harami Cross", message = "New Harami Cross - Обнаружен бычий паттерн.")
+if C_HaramiCrossBullish and HaramiCrossInput and showBullishSignal
+    var msg_EN = "Крест Харами\nВ классической модели «харами» за свечой с длинным телом должна следовать свеча с коротким телом. Но строгих правил относительно того, насколько коротким должно быть тело этой второй свечи, не существует, и, как и во многих других инструментах технического анализа, здесь допускается известная доля субъективности. Общий принцип следующий: чем меньше второе тело, тем сильнее неопределенность на рынке и тем выше вероятность разворота тренда. Иногда расхождение между ценами открытия и закрытия второй свечи становится настолько мизерным, что на графике образуется дожи, и такую модель, как уже отмечалось, чаще всего называют «крест харами». Крест харами относится к числу важных моделей разворота, в то время как обычная харами имеет второстепенное значение. Если крест харами возникает после длинной белой свечи, то игрокам на повышение явно не стоит его игнорировать, особенно учитывая, что эта модель предсказывает вершины лучше, чем основания."
+    var msg_CN = "Harami Cross"
+
+    var label_EN = "КХ"
+    var label_CN = "Крест Харами"
+
+    _getBullishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_HaramiCrossBearishNumberOfCandles = 2
+C_HaramiCrossBearish = C_LongBody[1] and C_WhiteBody[1] and C_UpTrend[1] and C_IsDojiBody and high <= C_BodyHi[1] and low >= C_BodyLo[1]
+alertcondition(C_HaramiCrossBearish, title = "Harami Cross", message = "New Harami Cross - Обнаружен медвежий паттерн.")
+if C_HaramiCrossBearish and HaramiCrossInput and showBearishSignal
+    var msg_EN = "Крест Харами\nВ классической модели «харами» за свечой с длинным телом должна следовать свеча с коротким телом. Но строгих правил относительно того, насколько коротким должно быть тело этой второй свечи, не существует, и, как и во многих других инструментах технического анализа, здесь допускается известная доля субъективности. Общий принцип следующий: чем меньше второе тело, тем сильнее неопределенность на рынке и тем выше вероятность разворота тренда. Иногда расхождение между ценами открытия и закрытия второй свечи становится настолько мизерным, что на графике образуется дожи, и такую модель, как уже отмечалось, чаще всего называют «крест харами». Крест харами относится к числу важных моделей разворота, в то время как обычная харами имеет второстепенное значение. Если крест харами возникает после длинной белой свечи, то игрокам на повышение явно не стоит его игнорировать, особенно учитывая, что эта модель предсказывает вершины лучше, чем основания."
+    var msg_CN = "Harami Cross"
+
+    var label_EN = "КХ"
+    var label_CN = "Крест Харами"
+
+    _getBearishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_HaramiBullishNumberOfCandles = 2
+C_HaramiBullish = C_LongBody[1] and C_BlackBody[1] and C_DownTrend[1] and C_WhiteBody and C_SmallBody and high <= C_BodyHi[1] and low >= C_BodyLo[1]
+alertcondition(C_HaramiBullish, title = "Harami", message = "New Harami - Обнаружен бычий паттерн.")
+if C_HaramiBullish and HaramiInput and showBullishSignal
+    var msg_EN = "Харами\nМодель харами состоит из свечи с маленьким телом (волчка), которое находится в границах сравнительно длинного тела предыдущей свечи. Древнее японское слово «харами» означает «беременная»: длинная свеча в данном случае – это «мать», а маленькая свеча – «ребенок», или «плод». Модель «харами» можно сравнить с таким понятием западного технического анализа, как «день внутри дня» (inside day). Так называется торговый день, в котором максимальная и минимальная цены не выходят за пределы диапазона предыдущей сессии. Однако день внутри дня не имеет или почти не имеет прогностической ценности, а харами предупреждает о завершении тренда. Формируются они тоже по-разному: если в день внутри дня торги должны проходить в границах минимума и максимума, достигнутых накануне, то в модели «харами» значение имеют только цены открытия и закрытия, которые во второй день должны образовать узкий диапазон (маленькое тело второй свечи), лежащий внутри широкого диапазона первого дня (большого тела первой свечи). Как правило, харами не является настолько же значимым сигналом разворота, как, например, молот, повешенный или модель поглощения. Харами говорит о приостановке рыночного движения: наблюдавшийся непосредственно перед ее появлением тренд завершается, и рынок зачастую выдерживает паузу. Но иногда эта модель все же сигнализирует о радикальном изменении тенденции, особенно когда появляется на вершинах."
+    var msg_CN = "Harami"
+
+    var label_EN = "Х"
+    var label_CN = "Харами"
+
+    _getBullishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_HaramiBearishNumberOfCandles = 2
+C_HaramiBearish = C_LongBody[1] and C_WhiteBody[1] and C_UpTrend[1] and C_BlackBody and C_SmallBody and high <= C_BodyHi[1] and low >= C_BodyLo[1]
+alertcondition(C_HaramiBearish, title = "Harami", message = "New Harami - Обнаружен медвежий паттерн.")
+if C_HaramiBearish and HaramiInput and showBearishSignal
+    var msg_EN = "Харами\nМодель харами состоит из свечи с маленьким телом (волчка), которое находится в границах сравнительно длинного тела предыдущей свечи. Древнее японское слово «харами» означает «беременная»: длинная свеча в данном случае – это «мать», а маленькая свеча – «ребенок», или «плод». Модель «харами» можно сравнить с таким понятием западного технического анализа, как «день внутри дня» (inside day). Так называется торговый день, в котором максимальная и минимальная цены не выходят за пределы диапазона предыдущей сессии. Однако день внутри дня не имеет или почти не имеет прогностической ценности, а харами предупреждает о завершении тренда. Формируются они тоже по-разному: если в день внутри дня торги должны проходить в границах минимума и максимума, достигнутых накануне, то в модели «харами» значение имеют только цены открытия и закрытия, которые во второй день должны образовать узкий диапазон (маленькое тело второй свечи), лежащий внутри широкого диапазона первого дня (большого тела первой свечи). Как правило, харами не является настолько же значимым сигналом разворота, как, например, молот, повешенный или модель поглощения. Харами говорит о приостановке рыночного движения: наблюдавшийся непосредственно перед ее появлением тренд завершается, и рынок зачастую выдерживает паузу. Но иногда эта модель все же сигнализирует о радикальном изменении тенденции, особенно когда появляется на вершинах."
+    var msg_CN = "Harami"
+
+    var label_EN = "Х"
+    var label_CN = "Харами"
+
+    _getBearishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_LongLowerShadowBullishNumberOfCandles = 1
+C_LongLowerShadowPercent = 75.0
+C_LongLowerShadowBullish = C_DnShadow > C_Range/100*C_LongLowerShadowPercent
+alertcondition(C_LongLowerShadowBullish, title = "Long Lower Shadow", message = "New Long Lower Shadow - Обнаружен бычий паттерн.")
+if C_LongLowerShadowBullish and LongLowerShadowInput and showBullishSignal
+    var msg_EN = "Длинная нижняя тень\nБычий сигнал, иногда на этом уровне цен возникает уровень поддержки."
+    var msg_CN = "Long Lower Shadow"
+
+    var label_EN = "ДНТ"
+    var label_CN = "Длинная нижняя тень"
+
+    _getBullishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_LongUpperShadowBearishNumberOfCandles = 1
+C_LongShadowPercent = 75.0
+C_LongUpperShadowBearish = C_UpShadow > C_Range/100*C_LongShadowPercent
+alertcondition(C_LongUpperShadowBearish, title = "Long Upper Shadow", message = "New Long Upper Shadow - Обнаружен медвежий паттерн.")
+if C_LongUpperShadowBearish and LongUpperShadowInput and showBearishSignal
+    var msg_EN = "Длинная верхняя тень\nМедвежий сигнал, иногда на этом уровне цен возникает уровень сопротивления"
+    var msg_CN = "Long Upper Shadow"
+
+    var label_EN = "ДВТ"
+    var label_CN = "Длинная верхняя тень"
+
+    _getBearishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_SpinningTopWhiteNumberOfCandles = 1
+C_SpinningTopWhitePercent = 34.0
+C_IsSpinningTopWhite = C_DnShadow >= C_Range / 100 * C_SpinningTopWhitePercent and C_UpShadow >= C_Range / 100 * C_SpinningTopWhitePercent and not C_IsDojiBody
+C_SpinningTopWhite = C_IsSpinningTopWhite and C_WhiteBody
+alertcondition(C_SpinningTopWhite, title = "Spinning Top White", message = "New Spinning Top White pattern detected.")
+if C_SpinningTopWhite and SpinningTopWhiteInput and showNeutralSignal
+    var msg_EN = "Белый волчок\nПоявление «волчка» говорит о том, что в текущий момент усилия быков и медведей примерно равны. На трендовом рынке такой сигнал может указывать на ослабевание текущего движения и возможный разворот или коррекцию. На флэтовом рынке «волчок» внутри диапазона часто лишь подтверждает вялость цен и отсутствие сильного интереса игроков."
+    var msg_CN = "Spinning Top White"
+
+    var label_EN = "БВ"
+    var label_CN = "Белый волчок"
+
+    _getNeutralLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_SpinningTopBlackNumberOfCandles = 1
+C_SpinningTopBlackPercent = 34.0
+C_IsSpinningTop = C_DnShadow >= C_Range / 100 * C_SpinningTopBlackPercent and C_UpShadow >= C_Range / 100 * C_SpinningTopBlackPercent and not C_IsDojiBody
+C_SpinningTopBlack = C_IsSpinningTop and C_BlackBody
+alertcondition(C_SpinningTopBlack, title = "Spinning Top Black", message = "New Spinning Top Black pattern detected.")
+if C_SpinningTopBlack and SpinningTopBlackInput and showNeutralSignal
+    var msg_EN = "Чёрный волчок\nПоявление «волчка» говорит о том, что в текущий момент усилия быков и медведей примерно равны. На трендовом рынке такой сигнал может указывать на ослабевание текущего движения и возможный разворот или коррекцию. На флэтовом рынке «волчок» внутри диапазона часто лишь подтверждает вялость цен и отсутствие сильного интереса игроков."
+    var msg_CN = "Spinning Top Black"
+
+    var label_EN = "ЧВ"
+    var label_CN = "Чёрный волчок"
+
+    _getNeutralLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_ThreeWhiteSoldiersBullishNumberOfCandles = 3
+C_3WSld_ShadowPercent = 5.0
+C_3WSld_HaveNotUpShadow = C_Range * C_3WSld_ShadowPercent / 100 > C_UpShadow
+C_ThreeWhiteSoldiersBullish = false
+if C_LongBody and C_LongBody[1] and C_LongBody[2]
+    if C_WhiteBody and C_WhiteBody[1] and C_WhiteBody[2]
+        C_ThreeWhiteSoldiersBullish := close > close[1] and close[1] > close[2] and open < close[1] and open > open[1] and open[1] < close[2] and open[1] > open[2] and C_3WSld_HaveNotUpShadow and C_3WSld_HaveNotUpShadow[1] and C_3WSld_HaveNotUpShadow[2]
+alertcondition(C_ThreeWhiteSoldiersBullish, title = "Three White Soldiers", message = "New Three White Soldiers - Обнаружен бычий паттерн.")
+if C_ThreeWhiteSoldiersBullish and ThreeWhiteSoldiersInput and showBullishSignal
+    var msg_EN = "Три белых солдата\nУзор Три белых солдата также называют узором Три наступающих белых солдата. В этой модели белые свечи указывают на восходящую тенденцию. Поэтому узор из трех белых солдат также можно назвать узором из трех красных солдат. Модель три белых солдата характеризуется тремя последовательными красными свечами, из которых цена закрытия второй и третьей красных свечей выше, чем цена закрытия свечи в предыдущий день. "
+    var msg_CN = "Three White Soldiers"
+
+    var label_EN = "ТБС"
+    var label_CN = "Три белых солдата"
+
+    _getBullishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_ThreeBlackCrowsBearishNumberOfCandles = 3
+C_3BCrw_ShadowPercent = 5.0
+C_3BCrw_HaveNotDnShadow = C_Range * C_3BCrw_ShadowPercent / 100 > C_DnShadow
+C_ThreeBlackCrowsBearish = false
+if C_LongBody and C_LongBody[1] and C_LongBody[2]
+    if C_BlackBody and C_BlackBody[1] and C_BlackBody[2]
+        C_ThreeBlackCrowsBearish := close < close[1] and close[1] < close[2] and open > close[1] and open < open[1] and open[1] > close[2] and open[1] < open[2] and C_3BCrw_HaveNotDnShadow and C_3BCrw_HaveNotDnShadow[1] and C_3BCrw_HaveNotDnShadow[2]
+alertcondition(C_ThreeBlackCrowsBearish, title = "Three Black Crows", message = "New Three Black Crows - Обнаружен медвежий паттерн.")
+if C_ThreeBlackCrowsBearish and ThreeBlackCrowsInput and showBearishSignal
+    var msg_EN = "Три чёрные вороны\nЭта модель предвещает снижение рынка, когда возникает в области высоких цен либо после длительного восходящего тренда. Иногда для нее еще используется название «трехкрылые вороны» (threewinged crows), которое напоминает о весьма уместной в данном случае японской поговорке «у плохих новостей есть крылья». У всех трех свечей цена закрытия должна находиться в районе дневных минимумов, а цена открытия – в границах тела предыдущей свечи. Кроме того, в идеале тело первой свечи не должно подниматься выше максимума, достигнутого накануне."
+    var msg_CN = "Three Black Crows"
+
+    var label_EN = "ТЧВ"
+    var label_CN = "Три чёрные вороны"
+
+    _getBearishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_EngulfingBullishNumberOfCandles = 2
+C_EngulfingBullish = C_DownTrend and C_WhiteBody and C_LongBody and C_BlackBody[1] and C_SmallBody[1] and close >= open[1] and open <= close[1] and ( close > open[1] or open < close[1] )
+alertcondition(C_EngulfingBullish, title = "Engulfing", message = "New Engulfing - Обнаружен бычий паттерн.")
+if C_EngulfingBullish and BullishEngulfingInput and showBullishSignal
+    var msg_EN = "Поглощение\nОдин из ключевых сигналов разворота – состоит из двух свечей, которые, как правило, окрашены в разные цвета. Во время нисходящего тренда появляется свеча с бычьем белым телом, которое перекрывает собой черное тело предыдущей свечи, как бы поглощает его. Это свидетельствует о том, что давление покупателей стало превосходить давление продавцов. В западном техническом анализе ближайшим аналогом модели поглощения является день разворота (reversal day). Это день, когда во время восходящей (или нисходящей) тенденции достигается новый ценовой максимум (минимум), однако завершаются торги на отметке ниже (выше), чем цена закрытия предыдущего дня. Впрочем, модель поглощения позволяет даже тогда получать сигналы о грядущей смене тренда, когда о наступлении дня разворота говорить не приходится."
+    var msg_CN = "Engulfing"
+
+    var label_EN = "П"
+    var label_CN = "Поглощение"
+
+    _getBullishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_EngulfingBearishNumberOfCandles = 2
+C_EngulfingBearish = C_UpTrend and C_BlackBody and C_LongBody and C_WhiteBody[1] and C_SmallBody[1] and close <= open[1] and open >= close[1] and ( close < open[1] or open > close[1] )
+alertcondition(C_EngulfingBearish, title = "Engulfing", message = "New Engulfing - Обнаружен медвежий паттерн.")
+if C_EngulfingBearish and BearishEngulfingInput and showBearishSignal
+    var msg_EN = "Поглощение\nОдин из ключевых сигналов разворота – состоит из двух свечей, которые, как правило, окрашены в разные цвета. Во время нисходящего тренда появляется свеча с бычьем белым телом, которое перекрывает собой черное тело предыдущей свечи, как бы поглощает его. Это свидетельствует о том, что давление покупателей стало превосходить давление продавцов. В западном техническом анализе ближайшим аналогом модели поглощения является день разворота (reversal day). Это день, когда во время восходящей (или нисходящей) тенденции достигается новый ценовой максимум (минимум), однако завершаются торги на отметке ниже (выше), чем цена закрытия предыдущего дня. Впрочем, модель поглощения позволяет даже тогда получать сигналы о грядущей смене тренда, когда о наступлении дня разворота говорить не приходится."
+    var msg_CN = "Engulfing"
+
+    var label_EN = "П"
+    var label_CN = "Поглощение"
+
+    _getBearishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_AbandonedBabyBullishNumberOfCandles = 3
+C_AbandonedBabyBullish = C_DownTrend[2] and C_BlackBody[2] and C_IsDojiBody[1] and low[2] > high[1] and C_WhiteBody and high[1] < low
+alertcondition(C_AbandonedBabyBullish, title = "Abandoned Baby", message = "New Abandoned Baby - Обнаружен бычий паттерн.")
+if C_AbandonedBabyBullish and BullishAbandonedBabyInput and showBullishSignal
+    var msg_EN = "Брошенный ребёнок\nЭта модель почти такая же, как утренняя и вечерняя доджи-звезды, но с одним важным отличием. Здесь должен присутствовать разрыв вниз между тенями доджи и тенями первого и третьего дней в случае брошенного младенца во впадине. Противоположное верно и в случае брошенного младенца на вершине — между доджи и соседними днями должен существовать полный (включая тени) разрыв вверх. Брошенный младенец — весьма редкая модель, а в случае с рынком Форекс, не встречающаяся."
+    var msg_CN = "Abandoned Baby"
+
+    var label_EN = "БМб"
+    var label_CN = "Брошенный ребёнок"
+
+    _getBullishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_AbandonedBabyBearishNumberOfCandles = 3
+C_AbandonedBabyBearish = C_UpTrend[2] and C_WhiteBody[2] and C_IsDojiBody[1] and high[2] < low[1] and C_BlackBody and low[1] > high
+alertcondition(C_AbandonedBabyBearish, title = "Abandoned Baby", message = "New Abandoned Baby - Обнаружен медвежий паттерн.")
+if C_AbandonedBabyBearish and AbandonedBabyInput and showBearishSignal
+    var msg_EN = "Брошенный ребёнок\nЭта модель почти такая же, как утренняя и вечерняя доджи-звезды, но с одним важным отличием. Здесь должен присутствовать разрыв вниз между тенями доджи и тенями первого и третьего дней в случае брошенного младенца во впадине. Противоположное верно и в случае брошенного младенца на вершине — между доджи и соседними днями должен существовать полный (включая тени) разрыв вверх. Брошенный младенец — весьма редкая модель, а в случае с рынком Форекс, не встречающаяся."
+    var msg_CN = "Abandoned Baby"
+
+    var label_EN = "БМм"
+    var label_CN = "Брошенный ребёнок"
+
+    _getBearishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_TriStarBullishNumberOfCandles = 3
+C_3DojisBullish = C_Doji[2] and C_Doji[1] and C_Doji
+C_BodyGapUpBullish = C_BodyHi[1] < C_BodyLo
+C_BodyGapDnBullish = C_BodyLo[1] > C_BodyHi
+C_TriStarBullish = C_3DojisBullish and C_DownTrend[2] and C_BodyGapDnBullish[1] and C_BodyGapUpBullish
+alertcondition(C_TriStarBullish, title = "Tri-Star", message = "New Tri-Star - Обнаружен бычий паттерн.")
+if C_TriStarBullish and TriStarInput and showBullishSignal
+    var msg_EN = "Три звезды\nВстречаются очень редко, но это одна из самых сильных моделей разворота. В нее входят три дожи, средняя из которых является звездой. На реальных графиках мне еще ни разу не попадался идеальный вариант трех звезд, но даже вариации этой модели являются важными сигналами смены тренда."
+    var msg_CN = "Tri-Star"
+
+    var label_EN = "ТЗ"
+    var label_CN = "Три звезды"
+
+    _getBullishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_TriStarBearishNumberOfCandles = 3
+C_3Dojis = C_Doji[2] and C_Doji[1] and C_Doji
+C_BodyGapUp = C_BodyHi[1] < C_BodyLo
+C_BodyGapDn = C_BodyLo[1] > C_BodyHi
+C_TriStarBearish = C_3Dojis and C_UpTrend[2] and C_BodyGapUp[1] and C_BodyGapDn
+alertcondition(C_TriStarBearish, title = "Tri-Star", message = "New Tri-Star - Обнаружен медвежий паттерн.")
+if C_TriStarBearish and BearishTriStarInput and showBearishSignal
+    var msg_EN = "Три звезды\nВстречаются очень редко, но это одна из самых сильных моделей разворота. В нее входят три дожи, средняя из которых является звездой. На реальных графиках мне еще ни разу не попадался идеальный вариант трех звезд, но даже вариации этой модели являются важными сигналами смены тренда."
+    var msg_CN = "Tri-Star"
+
+    var label_EN = "ТЗ"
+    var label_CN = "Три звезды"
+
+    _getBearishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_KickingBullishNumberOfCandles = 2
+C_MarubozuShadowPercent = 5.0
+C_Marubozu = C_LongBody and C_UpShadow <= C_MarubozuShadowPercent/100*C_Body and C_DnShadow <= C_MarubozuShadowPercent/100*C_Body
+C_MarubozuWhiteBullishKicking = C_Marubozu and C_WhiteBody
+C_MarubozuBlackBullish = C_Marubozu and C_BlackBody
+C_KickingBullish = C_MarubozuBlackBullish[1] and C_MarubozuWhiteBullishKicking and high[1] < low
+alertcondition(C_KickingBullish, title = "Kicking", message = "New Kicking - Обнаружен бычий паттерн.")
+if C_KickingBullish and KickingInput and showBullishSignal
+    var msg_EN = "Бычий кикер\nВ модели «Бычий кикер» отрицательная свеча в первый день указывает на то, что медведи полностью контролируют рынок. Как бы то ни было, огромный гэп на следующий день существенно меняет психологию рынка. У быков была возможность компенсировать убытки, понесенные медведями в начале дня, и увеличить прибыль за счет гэпа и длинной бычьей свечи. Этот разворот настолько силен, что весь медвежий день, который был установлен в начале, теперь приносит убытки. В тот момент, когда эти короткие позиции будут сданы и вынуждены выкупаться, на рынке возникнет сильное покупательское давление, что приведет к значительному увеличению стоимости."
+    var msg_CN = "Bullish Kicking"
+
+    var label_EN = "БК"
+    var label_CN = "Бычий кикер"
+
+    _getBullishLabel(msg_EN, msg_CN, label_EN, label_CN)
+
+
+C_KickingBearishNumberOfCandles = 2
+C_MarubozuBullishShadowPercent = 5.0
+C_MarubozuBearishKicking = C_LongBody and C_UpShadow <= C_MarubozuBullishShadowPercent/100*C_Body and C_DnShadow <= C_MarubozuBullishShadowPercent/100*C_Body
+C_MarubozuWhiteBearish = C_MarubozuBearishKicking and C_WhiteBody
+C_MarubozuBlackBearishKicking = C_MarubozuBearishKicking and C_BlackBody
+C_KickingBearish = C_MarubozuWhiteBearish[1] and C_MarubozuBlackBearishKicking and low[1] > high
+alertcondition(C_KickingBearish, title = "Kicking", message = "New Kicking - Обнаружен медвежий паттерн.")
+if C_KickingBearish and KickingInput and showBearishSignal
+    var ttBearishKicking = "Медвежий кикер\nЭтот паттерн формируется, когда цены открываются выше закрытия предыдущего дня после восходящего тренда на следующий день, но бычий импульс снижается, и цены снижаются до тех пор, пока в конечном итоге не закроются ниже уровня открытия предыдущего дня."
+
+    label.new(bar_index, patternLabelPosHigh, text="K", style = label.style_label_down, color = bearishColor, textcolor = textColor, tooltip = ttBearishKicking)
+    getBearishLabel("МК", ttBearishKicking)
+    var ttAllCandlestickPatterns = "Все паттерны японских свечей\n"
+    label.new(bar_index, patternLabelPosLow, text="Collection", style = label.style_label_up, color = neutralColor, textcolor = textColor, tooltip = ttAllCandlestickPatterns)
